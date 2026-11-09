@@ -1,0 +1,72 @@
+\section{Algorithms}
+\label{sec:algorithm}
+
+\begin{algorithm}[t]
+\caption{MemScope retrieval}
+\label{alg:retrieve}
+\begin{algorithmic}[1]
+\Require signed token $\kappa$, query $u$, result limit $k$
+\State $q\gets\mathsf{VerifyToken}(\kappa,\mathsf{BinderCaller},\mathsf{ToolChain})$
+\If{$q=\bot$ or $\mathsf{Now}()\ge q.e_q$} \State \Return $\mathsf{DENY}$ \EndIf
+\State $v\gets\mathsf{PolicyEpoch}(q)$
+\State $C\gets\mathsf{IndexCandidates}(u,\mathsf{Projection}(q))$
+\State $A\gets[\,]$
+\ForAll{$m\in C$}
+  \If{$\mathsf{IntegrityOK}(m)$ and $\Auth(m,q)$}
+    \State append $m$ to $A$
+  \EndIf
+\EndFor
+\State $O\gets\mathsf{Rank}(u,A,k)$
+\If{$v\ne\mathsf{PolicyEpoch}(q)$ or $\mathsf{Now}()\ge q.e_q$}
+  \State \Return \Call{Retrieve}{$\kappa,u,k$} \Comment{bounded restart}
+\EndIf
+\State $X\gets\mathsf{DecryptAuthorized}(O,q)$
+\State $\mathsf{Audit}(q,O,\mathsf{ALLOW})$
+\State \Return $X$
+\end{algorithmic}
+\end{algorithm}
+
+Algorithm~\ref{alg:retrieve} performs a redundant authorization check after index filtering because index projection is an optimization, not the trusted policy decision. Production code bounds restarts and returns a transient error during pathological policy churn.
+
+\begin{algorithm}[t]
+\caption{MemScope derived-memory admission}
+\label{alg:derive}
+\begin{algorithmic}[1]
+\Require token $\kappa$, payload $x_d$, parent IDs $S$, proposed label $\hat\ell$, transformation $f$
+\State $q\gets\mathsf{VerifyToken}(\kappa,\mathsf{BinderCaller},\mathsf{ToolChain})$
+\If{$q=\bot$ or $S=\emptyset$} \State \Return $\mathsf{REJECT}$ \EndIf
+\State $M_S\gets\mathsf{ReadParentsAtomically}(S)$
+\If{$|M_S|\ne|S|$} \State \Return $\mathsf{REJECT}$ \EndIf
+\ForAll{$m_j\in M_S$}
+  \If{$\neg\Auth(m_j,q)$} \State \Return $\mathsf{REJECT}$ \EndIf
+\EndFor
+\State $\ell^*\gets\Meet(M_S)$
+\If{$\neg(\hat\ell\preceq\ell^*)$} \State \Return $\mathsf{REJECT}$ \EndIf
+\If{$\mathsf{EmptyRequiredScope}(\ell^*)$} \State \Return $\mathsf{QUARANTINE}$ \EndIf
+\If{$\neg\mathsf{Attributed}(x_d,M_S,f)$} \State \Return $\mathsf{QUARANTINE}$ \EndIf
+\State $z_d\gets\mathsf{DerivationProvenance}(S,f,q)$
+\State \Return $\mathsf{Commit}(x_d,z_d,\hat\ell)$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[t]
+\caption{MemScope policy-aware compaction}
+\label{alg:compact}
+\begin{algorithmic}[1]
+\Require store $\M$, byte budget $B$, trusted time $\tau$
+\State delete/tombstone every $m_i$ with $\tau\ge e_i$ or explicit revocation
+\State rotate or destroy keys for empty revoked compartments
+\If{$\mathsf{Bytes}(\M)\le B$} \State \Return \EndIf
+\State $H\gets\mathsf{HardPinned}(\M)$
+\If{$\mathsf{Bytes}(H)>B$} \State \Return $\mathsf{RESOURCE\_CONFLICT}$ \EndIf
+\ForAll{$m_i\in\M\setminus H$}
+  \State $\rho_i\gets(\alpha u_i+\beta r_i+\gamma c_i-\delta d_i-\eta g_i)/w_i$
+\EndFor
+\ForAll{$m_i$ in nondecreasing $\rho_i$}
+  \State preserve required lineage metadata; evict $m_i$
+  \If{$\mathsf{Bytes}(\M)\le B$} \State \Return \EndIf
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+The greedy compactor is a documented approximation to \cref{eq:eviction}, not an optimality claim. An exact knapsack solver can be used offline for small stores as an oracle in evaluation.

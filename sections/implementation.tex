@@ -1,0 +1,42 @@
+\section{Reference implementation and Android prototype plan}
+\label{sec:implementation}
+
+\subsection{Two implementation layers}
+
+The artifact has two layers. A typed Python reference model implements the token, policy, retrieval, derivation, compaction, and metric contracts and is the primary vehicle for matched experiments. An Android application prototype running on the standard emulator implements the same API surface with an AIDL Binder service, service-owned encrypted storage, software-backed Android Keystore keys, audit events, and TTL enforcement. Neither layer patches \texttt{system\_server} or establishes complete mediation on a commercial device; a system-level AppSearch/AppFunctions variant is future work.
+
+\subsection{Service and API surface}
+
+The prototype exposes a Binder interface with four principal calls: \texttt{issueTaskToken}, \texttt{queryMemory}, \texttt{putObservation}, and \texttt{putDerivation}. Maintenance calls cover correction, revocation, compaction, export, and policy inspection. Public SDK objects contain opaque IDs and structured explanations; they never expose raw database handles.
+
+The emulator prototype keeps authorization fields in service-owned tables and restricts the database to the service process. Queries pass through the service, which filters before ranking. A system-level variant would move projection filtering into AppSearch PlatformStorage; comparing the two is left to future work.
+
+\subsection{Schema}
+
+The document schema contains: item ID; ciphertext blob or encrypted file reference; embedding reference; source package certificate digest; source tool/function ID; acquisition token digest; purpose/app/tool/consumer ID arrays; sensitivity; not-before and expiry; policy epoch; parent IDs and digests; transformation type; state; size; and compact audit counters. Set IDs are device-local keyed hashes to limit disclosure from a raw index image. Integrity tags cover the label, provenance, and ciphertext reference.
+
+Payload encryption uses per-compartment data-encryption keys wrapped by Android Keystore. The emulator supplies software-backed keys; StrongBox is future work \citep{android2026strongbox}. The design does not assume that a secure element makes an unlocked authorized read safe from a compromised system service. It protects keys from ordinary application access and raises the cost of offline database theft, but we do not claim vendor secure-hardware behavior.
+
+\subsection{Token binding}
+
+AppFunction metadata provides the declared function and schema \citep{android2026appfunctions}. A system interceptor records the calling UID, package certificate, target provider, function identifier, and parent task. The purpose registry maps this tuple to a stable purpose ID. For legacy tools, a mediated adapter supplies equivalent identifiers; an unmediated network endpoint cannot receive a MemScope token.
+
+Tokens use a compact canonical encoding, hardware- or OS-keystore-backed signatures, a 128-bit nonce, and a policy epoch. Verification caches may store positive signature results until token expiry but still check caller/tool binding on every request. Tests cover field mutation, replay, confused-deputy chains, clock rollback, stale epochs, and cross-user Android profiles.
+
+\subsection{Label and attribution engine}
+
+The deterministic propagator is ordinary systems code. The optional semantic verifier is replaceable: lexical coverage for extractive transforms; natural-language inference for abstractive summaries; and a small on-device model for offline operation. Candidate models include the small on-device class named in the source concept. The verifier produces supported/unsupported/uncertain plus cited spans; uncertainty quarantines high-sensitivity items. Model output cannot directly set label fields.
+
+The experimental build logs verifier decisions and a content-free feature vector so that false acceptance and rejection can be audited against human labels. No test split is used to tune production thresholds after reporting begins.
+
+\subsection{Concurrency and recovery}
+
+SQLite/AppSearch transactions associate a snapshot version with parent reads and derived writes. A write-ahead journal records intent before key and index changes. Recovery replays only operations whose integrity and policy epoch remain valid. Token replay state and recent audit roots persist across reboot. Compaction is idempotent: tombstoning, index deletion, ciphertext deletion, and key cleanup can be retried without restoring logical accessibility.
+
+\subsection{Instrumentation}
+
+Latency is divided into Binder, signature, projection, policy recheck, ranking, decryption, and audit components on the emulator. Storage accounting separates payload, embeddings, labels, provenance DAG, audit, and index. The Python reference model supplies scale measurements at $10^2$--$10^5$ items. Energy, thermal, and CPU/NPU counters on physical phones are not measured and are not claimed.
+
+\subsection{Compatibility}
+
+An Agent SDK adapter converts common memory operations---add, search, update, delete---into the MemScope API. Mem0/Letta-style identity namespaces remain a baseline but are not treated as equivalent authorization. Applications unwilling to integrate remain outside complete mediation and cannot claim MemScope protection. The system can expose migration tooling that imports records under a conservative quarantine policy until provenance and scope are assigned.

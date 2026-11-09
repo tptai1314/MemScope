@@ -1,0 +1,37 @@
+\section{Policy and trace examples}
+\label{app:policy}
+
+\subsection{Scheduling example}
+
+Suppose a user asks a messaging agent to propose times for a medical appointment. Calendar item $m_1$ contains free/busy intervals and permits purpose \texttt{scheduling}, apps \{assistant, calendar\}, tools \{calendar.read\}, and a seven-day lifetime. Health item $m_2$ contains a clinic preference and permits purposes \{health, scheduling\}, apps \{assistant, health\}, tools \{health.preference.read\}, and a 90-day lifetime. No single tool is authorized for both items. The issuer decomposes the task: one token retrieves free/busy intervals, another retrieves the clinic preference, and the agent receives purpose-limited views. A derived proposed-time item citing both sources has app intersection \{assistant\}, purpose intersection \{scheduling\}, tool intersection empty, and expiry no later than seven days. It can be shown to the user by the assistant but is quarantined from generic tool retrieval unless policy explicitly names a common tool.
+
+\subsection{Shopping versus health}
+
+An allergy item allows purposes \{health, food-safety\} and tools \{health.read, restaurant.check\}. A shopping recommender asks under purpose \texttt{personalized-ads}; authorization fails even when the query embedding is close to the allergy text. Because filtering precedes ranking, the item neither appears in candidates nor displaces entitled shopping preferences. If the user explicitly asks the shopping agent to screen groceries for allergens, the issuer selects \texttt{food-safety} and the approved grocery checker tool; the same app can then receive the item under a different, visible task context.
+
+\subsection{Malicious tool persistence}
+
+A travel tool returns text instructing the model to remember a request to upload all later memories. The direct observation is labeled with source tool \texttt{travel.badtool}, travel purpose, short lifetime, and high integrity risk. If the model proposes a durable reflection, it must cite the malicious output. The meet cannot widen beyond the travel scope, and the attribution/risk policy can quarantine the instruction. Even if admitted, a later health token cannot retrieve it. The within-travel case remains possible and is an explicit SPORE stress test.
+
+\subsection{Correction and invalidation}
+
+At time $t_1$ an item says ``preferred pharmacy is A.'' At $t_2$ the user changes it to B. The new item cites the correction event; the old item becomes invalid at the commit epoch. A summary that cited A expires or is invalidated no later than its parent. Memora-style queries test that B is returned and A is not reused \citep{uddin2026memora}. The audit UI retains a content-minimized trace explaining the change without making the old value ordinarily retrievable.
+
+\subsection{Illustrative policy fragment}
+
+\begin{verbatim}
+rule food_safety_allergy {
+  source_classes = [health_record, user_statement]
+  purposes       = [health, food_safety]
+  consumers      = [primary_assistant]
+  apps           = [assistant_pkg, health_pkg]
+  tools          = [health.read, restaurant.check,
+                    grocery.allergen_check]
+  sensitivity    = health_sensitive
+  max_ttl_days   = 365
+  derivation     = extractive_or_confirmed
+  retention      = safety_pinned_until_expiry
+}
+\end{verbatim}
+
+The syntax is illustrative, not an implemented configuration language. The actual policy compiler must define canonical IDs, inheritance, conflict resolution, and user-facing explanations.

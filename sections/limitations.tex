@@ -1,0 +1,29 @@
+\section{Limitations and ethical considerations}
+\label{sec:limitations}
+
+\paragraph{Design-stage artifact.}
+The largest limitation is that this artifact is a design manuscript with a reference implementation and an emulator prototype plan. All system, attack, utility, retention, and cost outcomes are pending. The paper is not submission-ready as an empirical systems paper until the prototype and preregistered experiments are completed.
+
+\paragraph{Trusted computing base.}
+Compromise of the kernel, MemScope service, issuer, policy compiler, trusted clock, or key-handling path invalidates the core proof. Complete mediation is particularly fragile during migration because agents may retain private databases, caches, logs, or cloud histories.
+
+\paragraph{Semantic policy specification.}
+The OS can authenticate an app or tool more directly than it can determine a user's purpose. AppFunction metadata and visible task state reduce ambiguity but do not solve it. Incorrect defaults can cause both leakage and denial. Policy usability requires separate study.
+
+\paragraph{Authorized-recipient behavior.}
+Once a correctly authorized tool receives plaintext, MemScope cannot stop it from retaining or disclosing the data unless downstream mediation also applies. The theorem must not be cited as an end-to-end noninterference result.
+
+\paragraph{Inference leakage.}
+Labels apply to items and derivations, not every semantic consequence of a transcript. Repeated permitted answers can reveal protected attributes. Differential-privacy or query-auditing mechanisms may be necessary for high-risk deployments \citep{kim2026dpmemview,dwork2014algorithmic}.
+
+\paragraph{Attribution error.}
+Natural-language entailment and overlap checks can accept a laundering derivation or reject a useful abstraction. Restrictive labels limit where an accepted item flows but do not validate truth. High-risk classes should use structured/extractive transforms or human review.
+
+\paragraph{Availability and side channels.}
+An attacker can cause quarantine, storage pressure, token churn, or expensive verification. Result counts, timing, storage occupancy, and power may reveal information. Rate limits and coarse errors help, but access-pattern privacy and denial-of-service resistance are not proven.
+
+\paragraph{Emulator-only evaluation.}
+The prototype runs on the standard Android emulator and the typed Python reference model. It does not establish complete mediation, vendor secure-hardware behavior, or phone-level latency, energy, and thermal costs. AppSearch PlatformStorage, AppFunctions interception, StrongBox/Knox, and vendor services remain future work. AppSearch visibility is studied as an emulated baseline, not as a modified platform module.
+
+\paragraph{Dataset realism and ethics.}
+Synthetic profiles reduce risk to real users but may not reproduce real disclosure norms, languages, disability needs, household structures, or adversarial behavior. No real personal memory should be collected without consent, minimization, and ethics approval. Attack artifacts must be isolated from production accounts and tools.
